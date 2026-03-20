@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Diet Dashboard</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+
+<body>
+
+<h1 style="text-align:center;">Diet Analysis Dashboard</h1>
+
+<div style="text-align:center; margin-bottom:20px;">
+    <select id="dietFilter">
+        <option value="all">All Diets</option>
+        <option value="Keto">Keto</option>
+        <option value="Vegan">Vegan</option>
+        <option value="Paleo">Paleo</option>
+    </select>
+
+    <button onclick="loadData()">Refresh Data</button>
+</div>
+
+<p id="executionTime" style="text-align:center;"></p>
+<p id="errorMessage" style="text-align:center; color:red;"></p>
+
+<div style="width:80%; margin:auto;">
+    <canvas id="barChart"></canvas>
+</div>
+
+<div style="width:80%; margin:auto;">
+    <canvas id="lineChart"></canvas>
+</div>
+
+<div style="width:50%; margin:auto;">
+    <canvas id="pieChart"></canvas>
+</div>
+
+<script>
+
+// 🔴 REPLACE THIS WITH YOUR REAL AZURE FUNCTION URL
+const API_URL = "https://YOUR-FUNCTION-APP.azurewebsites.net/api/YOUR_FUNCTION";
+
+let barChart, lineChart, pieChart;
+
+async function loadData() {
+
+    const filter = document.getElementById("dietFilter").value;
+
+    try {
+        document.getElementById("errorMessage").innerText = "Loading...";
+
+        const response = await fetch(API_URL + "?diet=" + filter);
+
+        if (!response.ok) {
+            throw new Error("API request failed");
+        }
+
+        const data = await response.json();
+
+        document.getElementById("executionTime").innerText =
+            "Execution Time: " + (data.execution_time || "N/A");
+
+        document.getElementById("errorMessage").innerText = "";
+
+        updateCharts(data);
+
+    } catch (error) {
+        console.error(error);
+        document.getElementById("errorMessage").innerText =
+            "Error loading data. Check API connection.";
+    }
+}
+
+function updateCharts(data) {
+
+    const bar = data.bar_chart || [];
+    const line = data.line_chart || [];
+    const pie = data.pie_chart || [];
+
+    if (barChart) barChart.destroy();
+    if (lineChart) lineChart.destroy();
+    if (pieChart) pieChart.destroy();
+
+    barChart = new Chart(document.getElementById("barChart"), {
+        type: "bar",
+        data: {
+            labels: bar.map(d => d.diet),
+            datasets: [{
+                label: "Protein",
+                data: bar.map(d => d.protein)
+            }]
+        }
+    });
+
+    lineChart = new Chart(document.getElementById("lineChart"), {
+        type: "line",
+        data: {
+            labels: line.map(d => d.diet),
+            datasets: [{
+                label: "Carbs",
+                data: line.map(d => d.carbs)
+            }]
+        }
+    });
+
+    pieChart = new Chart(document.getElementById("pieChart"), {
+        type: "pie",
+        data: {
+            labels: pie.map(d => d.diet),
+            datasets: [{
+                data: pie.map(d => d.fat)
+            }]
+        }
+    });
+}
+
+// Auto load on start
+loadData();
+
+</script>
+
+</body>
+</html>

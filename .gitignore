@@ -1,0 +1,39 @@
+### OS / editor noise
+.DS_Store
+Thumbs.db
+
+.vscode/
+.idea/
+
+### Python
+__pycache__/
+*.py[cod]
+*.pyd
+*.pyo
+.Python
+
+venv/
+.venv/
+.python_packages/
+
+build/
+dist/
+*.egg-info/
+
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+### Secrets / env
+local.settings.json
+.env
+.env.*
+*.env
+
+### Azure / tooling artifacts
+*.log
+
+### Project-specific: keep repo clean
+backend/_frontend_extras/

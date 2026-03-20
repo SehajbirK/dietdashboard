@@ -1,0 +1,6 @@
+version: '3'
+services:
+  dietapp:
+    image: diet-analysis
+    container_name: diet-analysis-container
+    command: python data_analysis.py

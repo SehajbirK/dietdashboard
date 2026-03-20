@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Diet Dashboard</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+
+<body>
+
+<h1 style="text-align:center;">Diet Analysis Dashboard</h1>
+
+<div style="text-align:center; margin-bottom:20px;">
+    <select id="dietFilter">
+        <option value="all">All Diets</option>
+        <option value="Keto">Keto</option>
+        <option value="Vegan">Vegan</option>
+        <option value="Paleo">Paleo</option>
+    </select>
+
+    <button onclick="loadData()">Refresh Data</button>
+</div>
+
+<p id="executionTime" style="text-align:center;"></p>
+<p id="errorMessage" style="text-align:center; color:red;"></p>
+<p id="configHint" style="text-align:center; color:#666; font-size: 12px;"></p>
+
+<div id="backendConfig" style="width:80%; margin: 0 auto 16px auto; padding: 10px; border: 1px solid #ddd; border-radius: 6px; display:none;">
+    <div style="font-size: 14px; margin-bottom: 6px;"><strong>Backend URL Setup</strong></div>
+    <div style="font-size: 12px; color:#666; margin-bottom: 10px;">
+        Paste your Azure Function URL (including <code>?code=...</code>). This value is saved in your browser only (localStorage) and is not committed to GitHub.
+    </div>
+    <input id="backendUrlInput" type="text" style="width:100%; padding: 8px;" placeholder="https://<function-app>.azurewebsites.net/api/process?code=..." />
+    <div style="margin-top: 8px; display:flex; gap: 8px; justify-content: flex-end;">
+        <button onclick="saveBackendUrl()">Save Backend URL</button>
+        <button onclick="clearBackendUrl()">Clear</button>
+    </div>
+</div>
+
+<div id="tableContainer" style="width:80%; margin: 0 auto 20px auto;"></div>
+
+<div style="width:80%; margin:auto;">
+    <canvas id="barChart"></canvas>
+</div>
+
+<div style="width:80%; margin:auto;">
+    <canvas id="lineChart"></canvas>
+</div>
+
+<div style="width:50%; margin:auto;">
+    <canvas id="pieChart"></canvas>
+</div>
+
+<script>
+
+// Backend URL resolution order:
+// 1) window.BACKEND_URL (optional, if you inject it in hosting)
+// 2) localStorage BACKEND_URL (recommended for quick student deployments)
+// No secrets are stored in this repository.
+function getBackendUrl() {
+    if (typeof window.BACKEND_URL === "string" && window.BACKEND_URL.trim()) {
+        return window.BACKEND_URL.trim();
+    }
+    const saved = localStorage.getItem("BACKEND_URL");
+    return saved ? saved.trim() : "";
+}
+
+function showBackendConfig(show) {
+    document.getElementById("backendConfig").style.display = show ? "block" : "none";
+}
+
+function saveBackendUrl() {
+    const value = document.getElementById("backendUrlInput").value.trim();
+    if (!value) return;
+    localStorage.setItem("BACKEND_URL", value);
+    showBackendConfig(false);
+    loadData();
+}
+
+function clearBackendUrl() {
+    localStorage.removeItem("BACKEND_URL");
+    document.getElementById("backendUrlInput").value = "";
+    showBackendConfig(true);
+}
+
+let barChart, lineChart, pieChart;
+
+async function loadData() {
+
+    const filter = document.getElementById("dietFilter").value;
+    const backendUrl = getBackendUrl();
+
+    try {
+        if (!backendUrl) {
+            document.getElementById("errorMessage").innerText =
+                "Backend URL is not configured. Paste your Azure Function URL below.";
+            document.getElementById("configHint").innerText = "";
+            document.getElementById("backendUrlInput").value = "";
+            showBackendConfig(true);
+            return;
+        }
+
+        document.getElementById("errorMessage").innerText = "Loading...";
+        document.getElementById("configHint").innerText = "";
+        showBackendConfig(false);
+
+        const start = performance.now();
+        const response = await fetch(backendUrl, { cache: "no-store" });
+
+        if (!response.ok) {
+            throw new Error(`API request failed (HTTP ${response.status})`);
+        }
+
+        const data = await response.json();
+        const durationMs = Math.round(performance.now() - start);
+
+        const allResults = Array.isArray(data.results) ? data.results : [];
+        populateDietOptions(allResults);
+
+        const selected = document.getElementById("dietFilter").value;
+        let results = allResults;
+        if (selected !== "all") {
+            results = allResults.filter(r => String(r.Diet_type || "").toLowerCase() === selected.toLowerCase());
+        }
+
+        document.getElementById("executionTime").innerText =
+            `Request time: ${durationMs} ms`;
+        document.getElementById("errorMessage").innerText = "";
+
+        renderTable(results);
+        updateCharts(results);
+
+    } catch (error) {
+        console.error(error);
+        const message = (error && error.message) ? error.message : String(error);
+        document.getElementById("errorMessage").innerText =
+            `Error loading data: ${message}`;
+        document.getElementById("configHint").innerText =
+            "If this is a CORS error, allow your frontend origin in the Function App CORS settings.";
+    }
+}
+
+function populateDietOptions(allResults) {
+    const select = document.getElementById("dietFilter");
+    const current = select.value || "all";
+
+    const types = Array.from(new Set(
+        allResults
+            .map(r => String(r.Diet_type ?? "").trim())
+            .filter(Boolean)
+    )).sort((a, b) => a.localeCompare(b));
+
+    const options = [
+        `<option value="all">All Diets</option>`,
+        ...types.map(t => `<option value="${escapeHtmlAttr(t)}">${escapeHtml(t)}</option>`)
+    ];
+
+    select.innerHTML = options.join("");
+    select.value = types.includes(current) ? current : "all";
+}
+
+function renderTable(results) {
+    const container = document.getElementById("tableContainer");
+    if (!results.length) {
+        container.innerHTML = "<p style='text-align:center;'>No results returned.</p>";
+        return;
+    }
+
+    const rows = results.map(r => `
+        <tr>
+            <td>${escapeHtml(String(r.Diet_type ?? ""))}</td>
+            <td style="text-align:right;">${formatNumber(r["Protein(g)"])}</td>
+            <td style="text-align:right;">${formatNumber(r["Carbs(g)"])}</td>
+            <td style="text-align:right;">${formatNumber(r["Fat(g)"])}</td>
+        </tr>
+    `).join("");
+
+    container.innerHTML = `
+        <table style="width:100%; border-collapse: collapse;">
+            <thead>
+                <tr>
+                    <th style="text-align:left; border-bottom: 1px solid #ccc; padding: 6px;">Diet_type</th>
+                    <th style="text-align:right; border-bottom: 1px solid #ccc; padding: 6px;">Protein(g)</th>
+                    <th style="text-align:right; border-bottom: 1px solid #ccc; padding: 6px;">Carbs(g)</th>
+                    <th style="text-align:right; border-bottom: 1px solid #ccc; padding: 6px;">Fat(g)</th>
+                </tr>
+            </thead>
+            <tbody>
+                ${rows}
+            </tbody>
+        </table>
+    `;
+}
+
+function updateCharts(results) {
+
+    const labels = results.map(r => r.Diet_type);
+    const protein = results.map(r => Number(r["Protein(g)"] ?? 0));
+    const carbs = results.map(r => Number(r["Carbs(g)"] ?? 0));
+    const fat = results.map(r => Number(r["Fat(g)"] ?? 0));
+
+    if (barChart) barChart.destroy();
+    if (lineChart) lineChart.destroy();
+    if (pieChart) pieChart.destroy();
+
+    barChart = new Chart(document.getElementById("barChart"), {
+        type: "bar",
+        data: {
+            labels,
+            datasets: [{
+                label: "Protein (g)",
+                data: protein
+            }, {
+                label: "Carbs (g)",
+                data: carbs
+            }, {
+                label: "Fat (g)",
+                data: fat
+            }]
+        }
+    });
+
+    lineChart = new Chart(document.getElementById("lineChart"), {
+        type: "line",
+        data: {
+            labels,
+            datasets: [{
+                label: "Protein (g)",
+                data: protein
+            }, {
+                label: "Carbs (g)",
+                data: carbs
+            }, {
+                label: "Fat (g)",
+                data: fat
+            }]
+        }
+    });
+
+    const totalProtein = protein.reduce((a, b) => a + b, 0);
+    const totalCarbs = carbs.reduce((a, b) => a + b, 0);
+    const totalFat = fat.reduce((a, b) => a + b, 0);
+
+    pieChart = new Chart(document.getElementById("pieChart"), {
+        type: "pie",
+        data: {
+            labels: ["Protein (g)", "Carbs (g)", "Fat (g)"],
+            datasets: [{
+                data: [totalProtein, totalCarbs, totalFat]
+            }]
+        }
+    });
+}
+
+function formatNumber(value) {
+    const n = Number(value);
+    if (Number.isNaN(n)) return "";
+    return n.toFixed(2).replace(/\\.00$/, "");
+}
+
+function escapeHtml(str) {
+    return str
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll("\"", "&quot;")
+        .replaceAll("'", "&#39;");
+}
+
+function escapeHtmlAttr(str) {
+    return escapeHtml(str).replaceAll("`", "&#96;");
+}
+
+// Auto load on start
+loadData();
+
+</script>
+
+</body>
+</html>
