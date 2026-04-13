@@ -5,6 +5,7 @@ from typing import Any, Optional
 import pandas as pd
 from azure.data.tables import TableServiceClient
 from azure.storage.blob import BlobClient, BlobProperties, BlobServiceClient
+from azure.storage.blob import ContentSettings
 
 
 @dataclass
@@ -55,7 +56,7 @@ def upload_blob_bytes(
     blob_client.upload_blob(
         data=data,
         overwrite=True,
-        content_settings={"content_type": content_type},
+        content_settings=ContentSettings(content_type=content_type),
         metadata=metadata,
     )
 
@@ -77,4 +78,3 @@ def df_from_csv_bytes(csv_bytes: bytes) -> pd.DataFrame:
 
 def df_to_csv_bytes(df: pd.DataFrame) -> bytes:
     return df.to_csv(index=False).encode("utf-8")
-

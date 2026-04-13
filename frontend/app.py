@@ -4,6 +4,9 @@ import urllib.error
 import urllib.request
 
 from flask import Flask, Response, jsonify, send_from_directory
+from dotenv import load_dotenv
+
+load_dotenv()
 
 app = Flask(__name__, static_folder="dashboard", static_url_path="")
 

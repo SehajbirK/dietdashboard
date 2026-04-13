@@ -5,6 +5,13 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Diet Dashboard - Phase 3</title>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <!--
+    Config is provided either:
+    - by Flask at /config.js (local dev host), OR
+    - by a static file next to index.html (Static Web Apps / static hosting).
+  -->
+  <script src="config.js"></script>
+  <script src="/config.js"></script>
   <style>
     * { box-sizing: border-box; }
 
@@ -251,19 +258,23 @@
   <div id="loginSection" class="login-wrapper">
     <div class="login-card">
       <h2>Diet Dashboard Login</h2>
-      <p>Login first to view the secured nutrition analytics dashboard.</p>
+      <p>Register or login to view the secured nutrition analytics dashboard.</p>
 
+      <input id="name" class="input" placeholder="Name (for registration)" />
       <input id="email" class="input" placeholder="Email" />
       <input id="password" class="input" type="password" placeholder="Password" />
 
-      <button class="btn btn-primary btn-full" onclick="login()">Login</button>
+      <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+        <button class="btn btn-success btn-full" onclick="register()">Register</button>
+        <button class="btn btn-primary btn-full" onclick="login()">Login</button>
+      </div>
 
       <div class="oauth-row">
-        <button class="btn btn-primary" onclick="oauthLogin('Google')">Login with Google</button>
-        <button class="btn btn-primary" onclick="oauthLogin('GitHub')">Login with GitHub</button>
+        <button class="btn btn-primary" onclick="oauthLoginGitHub()">Continue with GitHub</button>
       </div>
 
       
+      <div id="backendStatus" class="small-note"></div>
       <p id="loginError" class="error"></p>
     </div>
   </div>
@@ -317,7 +328,7 @@
             <div><strong>Authentication</strong><span class="tag">Enabled</span></div>
             <div><strong>Encrypted Storage</strong><span class="tag">Enabled</span></div>
             <div><strong>Cached Results</strong><span class="tag">Blob JSON</span></div>
-            <div><strong>OAuth Options</strong><span class="tag">Google / GitHub</span></div>
+            <div><strong>OAuth Options</strong><span class="tag">GitHub</span></div>
           </div>
         </div>
       </div>
@@ -368,36 +379,23 @@
     This value is the base API URL.
     Keep only /api here, not /api/insights.
     */
-    const API_BASE = "https://diet1-a4gbhna3atcyb9am.canadacentral-01.azurewebsites.net/api";
+    const isLocalHost = (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1");
+    const hasExplicitBackendUrl = !!(window.BACKEND_URL && String(window.BACKEND_URL).trim());
+    let BACKEND_URL = ((window.BACKEND_URL || "") + "").replace(/\/$/, "");
+    let API_BASE = BACKEND_URL
+      ? (BACKEND_URL.endsWith("/api") ? BACKEND_URL : (BACKEND_URL + "/api"))
+      : "";
 
-    /*
-    This object stores demo chart data.
-    It is used if the backend API is not ready or fails.
-    */
-    const DEMO_INSIGHTS = {
-      bar_chart: [
-        { diet: "Keto", protein: 28 },
-        { diet: "Vegan", protein: 16 },
-        { diet: "Vegetarian", protein: 20 },
-        { diet: "Paleo", protein: 24 }
-      ],
-      pie_chart: [
-        { diet: "Keto", fat: 35 },
-        { diet: "Vegan", fat: 18 },
-        { diet: "Vegetarian", fat: 22 },
-        { diet: "Paleo", fat: 25 }
-      ],
-      scatter_chart: [
-        { carbs: 10, protein: 28 },
-        { carbs: 25, protein: 16 },
-        { carbs: 18, protein: 20 },
-        { carbs: 15, protein: 24 },
-        { carbs: 30, protein: 14 }
-      ]
-    };
+    function setBackendUrl(baseUrl) {
+      BACKEND_URL = (String(baseUrl || "")).replace(/\/$/, "");
+      API_BASE = BACKEND_URL
+        ? (BACKEND_URL.endsWith("/api") ? BACKEND_URL : (BACKEND_URL + "/api"))
+        : "";
+    }
 
     let token = "";
     let currentPage = 1;
+    let lastTotalPages = 1;
     let barChart;
     let pieChart;
     let scatterChart;
@@ -407,46 +405,77 @@
     It checks whether a user was already logged in before refresh.
     */
     window.onload = function () {
+      hydrateTokenFromOAuthRedirect();
       restoreSession();
+      updateBackendStatus();
     };
 
-    /*
-    This function saves the current login session in browser storage.
-    */
-    function saveSession(userName, provider) {
-      localStorage.setItem("dietDashboardUser", JSON.stringify({
-        token: "demo-token",
-        userName: userName,
-        provider: provider || "Email"
-      }));
+    async function tryDiscoverLocalBackend() {
+      if (hasExplicitBackendUrl) return;
+      if (!isLocalHost) return;
+      if (API_BASE) return;
+
+      const ports = [7071, 7072, 7073, 7074, 7075, 7076, 7077, 7078, 7079, 7080];
+      for (const p of ports) {
+        const candidate = `http://localhost:${p}`;
+        try {
+          const res = await fetch(candidate + "/api/health", { method: "GET" });
+          if (res.ok) {
+            setBackendUrl(candidate);
+            return;
+          }
+        } catch (e) {
+          // keep trying
+        }
+      }
     }
 
-    /*
-    This function reads the saved login session from browser storage.
-    If a user is found, it opens the dashboard automatically.
-    */
-    function restoreSession() {
-      const saved = localStorage.getItem("dietDashboardUser");
+    async function updateBackendStatus() {
+      const el = document.getElementById("backendStatus");
+      if (!el) return;
 
-      if (!saved) {
-        showLogin();
+      await tryDiscoverLocalBackend();
+
+      if (!API_BASE) {
+        el.innerText = "Backend: not configured (set BACKEND_URL / config.js)";
         return;
       }
 
+      el.innerText = "Backend: checking…";
       try {
-        const session = JSON.parse(saved);
-
-        if (session && session.token && session.userName) {
-          token = session.token;
-          showDashboard(session.userName);
-          getInsights();
-          renderDemoRecipes();
-        } else {
-          showLogin();
-        }
-      } catch (error) {
-        showLogin();
+        const res = await fetch(API_BASE + "/health", { method: "GET" });
+        el.innerText = res.ok ? ("Backend: " + API_BASE) : ("Backend: " + API_BASE + " (unhealthy)");
+      } catch (e) {
+        el.innerText = "Backend: " + API_BASE + " (not reachable)";
       }
+    }
+
+    function saveSession(authToken) {
+      sessionStorage.setItem("dietDashboardToken", authToken);
+    }
+
+    function clearSession() {
+      sessionStorage.removeItem("dietDashboardToken");
+    }
+
+    function restoreSession() {
+      const savedToken = sessionStorage.getItem("dietDashboardToken");
+      if (!savedToken) {
+        showLogin();
+        return;
+      }
+      token = savedToken;
+      refreshMeAndLoad();
+    }
+
+    function hydrateTokenFromOAuthRedirect() {
+      const hash = (window.location.hash || "").replace(/^#/, "");
+      if (!hash) return;
+      const params = new URLSearchParams(hash);
+      const t = params.get("token");
+      if (!t) return;
+      saveSession(t);
+      window.location.hash = "";
     }
 
     /*
@@ -455,6 +484,12 @@
     function showLogin() {
       document.getElementById("loginSection").style.display = "flex";
       document.getElementById("dashboardSection").style.display = "none";
+      if (!API_BASE) {
+        document.getElementById("loginError").innerText =
+          "Missing BACKEND_URL. Configure /config.js (see config.example.js).";
+      } else {
+        document.getElementById("loginError").innerText = "";
+      }
     }
 
     /*
@@ -480,37 +515,73 @@
       return true;
     }
 
-    /*
-    This function handles email and password login.
-    It accepts demo credentials and then opens the dashboard.
-    */
-    function login() {
+    async function apiFetch(path, options) {
+      if (!API_BASE) throw new Error("Missing BACKEND_URL configuration.");
+      const url = API_BASE + path;
+      const headers = Object.assign(
+        { "Content-Type": "application/json" },
+        (options && options.headers) || {}
+      );
+      if (token) headers["Authorization"] = "Bearer " + token;
+      return fetch(url, Object.assign({}, options || {}, { headers }));
+    }
+
+    async function register() {
+      const name = document.getElementById("name").value.trim();
       const email = document.getElementById("email").value.trim();
       const password = document.getElementById("password").value.trim();
 
-      if (email === "admin" && password === "123") {
-        token = "demo-token";
-        document.getElementById("loginError").innerText = "";
-        saveSession("Admin User", "Email");
-        showDashboard("Admin User");
-        getInsights();
-        renderDemoRecipes();
-      } else {
-        document.getElementById("loginError").innerText = "Use admin / 123";
+      document.getElementById("loginError").innerText = "";
+
+      try {
+        const res = await apiFetch("/auth/register", {
+          method: "POST",
+          body: JSON.stringify({ name, email, password })
+        });
+
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || "Registration failed");
+
+        token = data.token;
+        saveSession(token);
+        showDashboard(data.user && data.user.name ? data.user.name : name);
+        await refreshMeAndLoad();
+      } catch (err) {
+        document.getElementById("loginError").innerText = String(err.message || err);
       }
     }
 
-    /*
-    This function simulates OAuth login for demo purposes.
-    It logs the user in using the selected provider name.
-    */
-    function oauthLogin(provider) {
-      token = "demo-token";
+    async function login() {
+      const email = document.getElementById("email").value.trim();
+      const password = document.getElementById("password").value.trim();
+
       document.getElementById("loginError").innerText = "";
-      saveSession(provider + " User", provider);
-      showDashboard(provider + " User");
-      getInsights();
-      renderDemoRecipes();
+
+      try {
+        const res = await apiFetch("/auth/login", {
+          method: "POST",
+          body: JSON.stringify({ email, password })
+        });
+
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || "Login failed");
+
+        token = data.token;
+        saveSession(token);
+        showDashboard(data.user && data.user.name ? data.user.name : "User");
+        await refreshMeAndLoad();
+      } catch (err) {
+        document.getElementById("loginError").innerText = String(err.message || err);
+      }
+    }
+
+    function oauthLoginGitHub() {
+      if (!API_BASE) {
+        document.getElementById("loginError").innerText = "Missing BACKEND_URL configuration.";
+        return;
+      }
+      const returnTo = window.location.origin + window.location.pathname;
+      window.location.href = API_BASE + "/oauth/github/start?return_to=" + encodeURIComponent(returnTo);
     }
 
     /*
@@ -518,52 +589,68 @@
     It clears the session and sends the user back to the login screen.
     */
     function logout() {
+      doLogout();
+    }
+
+    async function doLogout() {
+      try {
+        if (token) {
+          await apiFetch("/auth/logout", { method: "POST" });
+        }
+      } catch (e) {
+        // ignore
+      }
       token = "";
-      localStorage.removeItem("dietDashboardUser");
+      clearSession();
       showLogin();
+      currentPage = 1;
+      lastTotalPages = 1;
       document.getElementById("executionTime").innerText = "";
       document.getElementById("recipeResults").innerHTML = 'Click <strong>Get Recipes</strong> to load paginated results.';
       document.getElementById("clusterResults").innerHTML = 'Click <strong>Get Clusters</strong> to load saved cluster output.';
       document.getElementById("pageLabel").innerText = "Page 1";
     }
 
-    /*
-    This function loads saved insights from the backend.
-    If the backend fails, it shows demo cached chart data.
-    */
+    async function refreshMeAndLoad() {
+      try {
+        const res = await apiFetch("/me", { method: "GET" });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || "Session invalid");
+        showDashboard(data.user && data.user.name ? data.user.name : "User");
+        currentPage = 1;
+        await getInsights();
+        await getRecipes();
+      } catch (e) {
+        token = "";
+        clearSession();
+        showLogin();
+        document.getElementById("loginError").innerText = "Session expired. Please login again.";
+      }
+    }
+
     async function getInsights() {
       if (!requireAuth()) return;
 
       const start = performance.now();
 
       try {
-        const res = await fetch(API_BASE + "/insights", {
-          headers: {
-            "Authorization": "Bearer " + token
-          }
-        });
+        const res = await apiFetch("/insights", { method: "GET" });
+        const data = await res.json();
 
         if (!res.ok) {
-          throw new Error("Insights request failed");
+          throw new Error((data && data.error) || "Insights request failed");
         }
 
-        const data = await res.json();
         drawCharts(data);
 
         const end = performance.now();
         document.getElementById("executionTime").innerText =
-          `Insights loaded in ${(end - start).toFixed(0)} ms using cached data.`;
+          `Insights loaded in ${(end - start).toFixed(0)} ms. Cache computed at ${data.computed_at || "unknown"}.`;
       } catch (error) {
-        drawCharts(DEMO_INSIGHTS);
-        document.getElementById("executionTime").innerText =
-          "Showing cached demo insights because API is unavailable.";
+        document.getElementById("executionTime").innerText = String(error.message || error);
       }
     }
 
-    /*
-    This function loads recipes using search, filter, and pagination.
-    If the backend fails, it shows demo recipes.
-    */
     async function getRecipes() {
       if (!requireAuth()) return;
 
@@ -571,49 +658,36 @@
       const search = document.getElementById("search").value;
 
       try {
-        const url = `${API_BASE}/recipes?page=${currentPage}&diet=${encodeURIComponent(diet)}&search=${encodeURIComponent(search)}`;
-
-        const res = await fetch(url, {
-          headers: {
-            "Authorization": "Bearer " + token
-          }
-        });
+        const pageSize = 10;
+        const url = `/recipes?page=${currentPage}&pageSize=${pageSize}&diet=${encodeURIComponent(diet)}&search=${encodeURIComponent(search)}`;
+        const res = await apiFetch(url, { method: "GET" });
+        const data = await res.json();
 
         if (!res.ok) {
-          throw new Error("Recipes request failed");
+          throw new Error((data && data.error) || "Recipes request failed");
         }
-
-        const data = await res.json();
 
         if (data.items && Array.isArray(data.items)) {
           renderRecipes(data.items, data.page || currentPage, data.totalPages || 1);
+          lastTotalPages = data.totalPages || 1;
         } else {
-          renderDemoRecipes();
+          throw new Error("Unexpected recipes response");
         }
       } catch (error) {
-        renderDemoRecipes();
+        document.getElementById("recipeResults").innerText = String(error.message || error);
       }
     }
 
-    /*
-    This function loads cluster data from the backend.
-    If the backend fails, it shows demo cluster content.
-    */
     async function getClusters() {
       if (!requireAuth()) return;
 
       try {
-        const res = await fetch(API_BASE + "/clusters", {
-          headers: {
-            "Authorization": "Bearer " + token
-          }
-        });
+        const res = await apiFetch("/clusters", { method: "GET" });
+        const data = await res.json();
 
         if (!res.ok) {
-          throw new Error("Clusters request failed");
+          throw new Error((data && data.error) || "Clusters request failed");
         }
-
-        const data = await res.json();
 
         if (Array.isArray(data)) {
           document.getElementById("clusterResults").innerHTML = `
@@ -628,10 +702,10 @@
             </div>
           `;
         } else {
-          renderDemoClusters();
+          throw new Error("Unexpected clusters response");
         }
       } catch (error) {
-        renderDemoClusters();
+        document.getElementById("clusterResults").innerText = String(error.message || error);
       }
     }
 
@@ -641,8 +715,10 @@
     */
     function nextPage() {
       if (!requireAuth()) return;
-      currentPage++;
-      getRecipes();
+      if (currentPage < lastTotalPages) {
+        currentPage++;
+        getRecipes();
+      }
     }
 
     /*
@@ -729,56 +805,6 @@
               Protein: ${item.protein || 0} |
               Carbs: ${item.carbs || 0} |
               Fat: ${item.fat || 0}
-            </div>
-          `).join("")}
-        </div>
-      `;
-    }
-
-    /*
-    This function shows example recipe data when the recipes API is not working yet.
-    */
-    function renderDemoRecipes() {
-      const selectedDiet = document.getElementById("dietFilter").value.trim().toLowerCase();
-      const keyword = document.getElementById("search").value.trim().toLowerCase();
-
-      let demoItems = [
-        { recipe: "Avocado Keto Bowl", diet: "Keto", calories: 420, protein: 21, carbs: 10, fat: 31 },
-        { recipe: "Green Vegan Salad", diet: "Vegan", calories: 280, protein: 9, carbs: 24, fat: 14 },
-        { recipe: "Protein Veg Wrap", diet: "Vegetarian", calories: 350, protein: 18, carbs: 28, fat: 12 },
-        { recipe: "Paleo Chicken Plate", diet: "Paleo", calories: 460, protein: 29, carbs: 16, fat: 24 }
-      ];
-
-      if (selectedDiet) {
-        demoItems = demoItems.filter(item => item.diet.toLowerCase() === selectedDiet);
-      }
-
-      if (keyword) {
-        demoItems = demoItems.filter(item =>
-          item.recipe.toLowerCase().includes(keyword)
-        );
-      }
-
-      renderRecipes(demoItems, currentPage, 2);
-    }
-
-    /*
-    This function shows example cluster data when the clusters API is not working yet.
-    */
-    function renderDemoClusters() {
-      const demoClusters = [
-        { recipe: "Avocado Keto Bowl", diet: "Keto", cluster: 0 },
-        { recipe: "Green Vegan Salad", diet: "Vegan", cluster: 1 },
-        { recipe: "Protein Veg Wrap", diet: "Vegetarian", cluster: 2 }
-      ];
-
-      document.getElementById("clusterResults").innerHTML = `
-        <div class="recipes-list">
-          ${demoClusters.map(item => `
-            <div class="recipe-item">
-              <strong>${item.recipe}</strong><br>
-              Diet: ${item.diet}<br>
-              Cluster: ${item.cluster}
             </div>
           `).join("")}
         </div>
