@@ -37,5 +37,6 @@
     ".vscode{,/**}"
   ],
   "appService.defaultWebAppToDeploy": "",
-  "appService.deploySubpath": "."
+  "appService.deploySubpath": ".",
+  "python-envs.defaultEnvManager": "ms-python.python:system"
 }

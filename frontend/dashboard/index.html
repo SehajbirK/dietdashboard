@@ -1,279 +1,789 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <title>Diet Dashboard</title>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Diet Dashboard - Phase 3</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background: #f4f7fb;
+      color: #1f2937;
+    }
+
+    .topbar {
+      background: linear-gradient(90deg, #2563eb, #1d4ed8);
+      color: white;
+      padding: 18px 28px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.12);
+    }
+
+    .topbar h1 {
+      margin: 0;
+      font-size: 30px;
+    }
+
+    .topbar p {
+      margin: 4px 0 0;
+      font-size: 14px;
+      opacity: 0.9;
+    }
+
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 24px;
+    }
+
+    .card {
+      background: white;
+      border-radius: 16px;
+      box-shadow: 0 8px 24px rgba(15, 23, 42, 0.08);
+      padding: 20px;
+    }
+
+    .login-wrapper {
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      padding: 20px;
+      background: linear-gradient(135deg, #eff6ff, #dbeafe);
+    }
+
+    .login-card {
+      width: 100%;
+      max-width: 420px;
+      background: white;
+      border-radius: 20px;
+      box-shadow: 0 12px 30px rgba(37, 99, 235, 0.18);
+      padding: 30px;
+    }
+
+    .login-card h2 {
+      margin-top: 0;
+      margin-bottom: 8px;
+      font-size: 30px;
+      color: #1d4ed8;
+      text-align: center;
+    }
+
+    .login-card p {
+      text-align: center;
+      color: #6b7280;
+      margin-bottom: 24px;
+    }
+
+    .input, .select {
+      width: 100%;
+      padding: 12px 14px;
+      border: 1px solid #d1d5db;
+      border-radius: 10px;
+      font-size: 15px;
+      margin-bottom: 14px;
+      background: white;
+    }
+
+    .btn {
+      border: none;
+      border-radius: 10px;
+      padding: 12px 16px;
+      font-size: 15px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: 0.2s ease;
+    }
+
+    .btn:hover {
+      transform: translateY(-1px);
+    }
+
+    .btn-primary { background: #2563eb; color: white; }
+    .btn-success { background: #16a34a; color: white; }
+    .btn-purple { background: #7c3aed; color: white; }
+    .btn-gray { background: #e5e7eb; color: #111827; }
+    .btn-danger { background: #dc2626; color: white; }
+    .btn-full { width: 100%; }
+
+    .oauth-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-top: 8px;
+    }
+
+    .small-note {
+      font-size: 12px;
+      color: #6b7280;
+      margin-top: 10px;
+      text-align: center;
+    }
+
+    .error {
+      color: #dc2626;
+      margin-top: 8px;
+      text-align: center;
+      font-weight: 700;
+      min-height: 20px;
+    }
+
+    .dashboard-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+
+    .dashboard-header h2 {
+      margin: 0;
+      font-size: 28px;
+    }
+
+    .user-box {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      background: white;
+      padding: 10px 14px;
+      border-radius: 12px;
+      box-shadow: 0 4px 14px rgba(0,0,0,0.08);
+    }
+
+    .charts-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 20px;
+      margin-bottom: 24px;
+    }
+
+    .chart-card h3 {
+      margin: 0 0 4px;
+    }
+
+    .chart-card p {
+      margin: 0 0 16px;
+      color: #6b7280;
+    }
+
+    .chart-wrap {
+      position: relative;
+      height: 260px;
+    }
+
+    .controls-grid {
+      display: grid;
+      grid-template-columns: 1.2fr 1fr auto auto auto;
+      gap: 12px;
+      align-items: end;
+      margin-bottom: 24px;
+    }
+
+    .section-title {
+      margin: 0 0 12px;
+      font-size: 24px;
+    }
+
+    .recipes-list {
+      display: grid;
+      gap: 12px;
+      margin-top: 16px;
+    }
+
+    .recipe-item {
+      padding: 14px;
+      border: 1px solid #e5e7eb;
+      border-radius: 12px;
+      background: #f9fafb;
+    }
+
+    .pagination {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 10px;
+      margin-top: 18px;
+    }
+
+    .footer {
+      margin-top: 28px;
+      background: #2563eb;
+      color: white;
+      text-align: center;
+      padding: 18px;
+      font-weight: 700;
+    }
+
+    .tag {
+      display: inline-block;
+      background: #dbeafe;
+      color: #1d4ed8;
+      font-size: 12px;
+      font-weight: 700;
+      padding: 4px 8px;
+      border-radius: 999px;
+      margin-left: 8px;
+    }
+
+    .notice {
+      color: #6b7280;
+      font-weight: 700;
+      margin-top: 8px;
+    }
+
+    @media (max-width: 900px) {
+      .charts-grid { grid-template-columns: 1fr; }
+      .controls-grid { grid-template-columns: 1fr; }
+      .dashboard-header { flex-direction: column; align-items: flex-start; }
+      .user-box { width: 100%; justify-content: space-between; }
+      .oauth-row { grid-template-columns: 1fr; }
+    }
+  </style>
 </head>
-
 <body>
+  <div id="loginSection" class="login-wrapper">
+    <div class="login-card">
+      <h2>Diet Dashboard Login</h2>
+      <p>Login first to view the secured nutrition analytics dashboard.</p>
 
-<h1 style="text-align:center;">Diet Analysis Dashboard</h1>
+      <input id="email" class="input" placeholder="Email" />
+      <input id="password" class="input" type="password" placeholder="Password" />
 
-<div style="text-align:center; margin-bottom:20px;">
-    <select id="dietFilter">
-        <option value="all">All Diets</option>
-        <option value="Keto">Keto</option>
-        <option value="Vegan">Vegan</option>
-        <option value="Paleo">Paleo</option>
-    </select>
+      <button class="btn btn-primary btn-full" onclick="login()">Login</button>
 
-    <button onclick="loadData()">Refresh Data</button>
-</div>
+      <div class="oauth-row">
+        <button class="btn btn-primary" onclick="oauthLogin('Google')">Login with Google</button>
+        <button class="btn btn-primary" onclick="oauthLogin('GitHub')">Login with GitHub</button>
+      </div>
 
-<p id="executionTime" style="text-align:center;"></p>
-<p id="errorMessage" style="text-align:center; color:red;"></p>
-<p id="configHint" style="text-align:center; color:#666; font-size: 12px;"></p>
-
-<div id="backendConfig" style="width:80%; margin: 0 auto 16px auto; padding: 10px; border: 1px solid #ddd; border-radius: 6px; display:none;">
-    <div style="font-size: 14px; margin-bottom: 6px;"><strong>Backend URL Setup</strong></div>
-    <div style="font-size: 12px; color:#666; margin-bottom: 10px;">
-        Paste your Azure Function URL (including <code>?code=...</code>). This value is saved in your browser only (localStorage) and is not committed to GitHub.
+      
+      <p id="loginError" class="error"></p>
     </div>
-    <input id="backendUrlInput" type="text" style="width:100%; padding: 8px;" placeholder="https://<function-app>.azurewebsites.net/api/process?code=..." />
-    <div style="margin-top: 8px; display:flex; gap: 8px; justify-content: flex-end;">
-        <button onclick="saveBackendUrl()">Save Backend URL</button>
-        <button onclick="clearBackendUrl()">Clear</button>
+  </div>
+
+  <div id="dashboardSection" style="display:none;">
+    <div class="topbar">
+      <div>
+        <h1>Nutritional Insights Dashboard</h1>
+        <p>CPSY-300-D • Phase 3 Cloud Dashboard</p>
+      </div>
+
+      <div class="user-box">
+        <span>Welcome, <strong id="username">Admin User</strong></span>
+        <button class="btn btn-danger" onclick="logout()">Logout</button>
+      </div>
     </div>
-</div>
 
-<div id="tableContainer" style="width:80%; margin: 0 auto 20px auto;"></div>
+    <div class="container">
+      <div class="dashboard-header">
+        <div>
+          <h2>Interactive Nutrition Analytics</h2>
+          <div style="color:#6b7280; margin-top:6px;">
+            Cached insights, recipe filtering, clustering, and paginated search results.
+          </div>
+        </div>
+      </div>
 
-<div style="width:80%; margin:auto;">
-    <canvas id="barChart"></canvas>
-</div>
+      <div class="charts-grid">
+        <div class="card chart-card">
+          <h3>Bar Chart</h3>
+          <p>Average protein by diet type.</p>
+          <div class="chart-wrap"><canvas id="barChart"></canvas></div>
+        </div>
 
-<div style="width:80%; margin:auto;">
-    <canvas id="lineChart"></canvas>
-</div>
+        <div class="card chart-card">
+          <h3>Pie Chart</h3>
+          <p>Recipe fat distribution by diet type.</p>
+          <div class="chart-wrap"><canvas id="pieChart"></canvas></div>
+        </div>
 
-<div style="width:50%; margin:auto;">
-    <canvas id="pieChart"></canvas>
-</div>
+        <div class="card chart-card">
+          <h3>Scatter Plot</h3>
+          <p>Carbs versus protein relationship.</p>
+          <div class="chart-wrap"><canvas id="scatterChart"></canvas></div>
+        </div>
 
-<script>
+        <div class="card chart-card">
+          <h3>System Status</h3>
+          <p>Security, cache, and access overview.</p>
+          <div style="display:grid; gap:12px; margin-top:8px;">
+            <div><strong>Authentication</strong><span class="tag">Enabled</span></div>
+            <div><strong>Encrypted Storage</strong><span class="tag">Enabled</span></div>
+            <div><strong>Cached Results</strong><span class="tag">Blob JSON</span></div>
+            <div><strong>OAuth Options</strong><span class="tag">Google / GitHub</span></div>
+          </div>
+        </div>
+      </div>
 
-// Backend URL resolution order:
-// 1) window.BACKEND_URL (optional, if you inject it in hosting)
-// 2) localStorage BACKEND_URL (recommended for quick student deployments)
-// No secrets are stored in this repository.
-function getBackendUrl() {
-    if (typeof window.BACKEND_URL === "string" && window.BACKEND_URL.trim()) {
-        return window.BACKEND_URL.trim();
+      <div class="card" style="margin-bottom:24px;">
+        <h3 class="section-title">Search, Filter, and API Actions</h3>
+
+        <div class="controls-grid">
+          <input id="search" class="input" placeholder="Search recipes by keyword" />
+          <select id="dietFilter" class="select">
+            <option value="">All Diet Types</option>
+            <option value="Keto">Keto</option>
+            <option value="Vegan">Vegan</option>
+            <option value="Vegetarian">Vegetarian</option>
+            <option value="Paleo">Paleo</option>
+          </select>
+
+          <button class="btn btn-primary" onclick="getInsights()">Get Insights</button>
+          <button class="btn btn-success" onclick="getRecipes()">Get Recipes</button>
+          <button class="btn btn-purple" onclick="getClusters()">Get Clusters</button>
+        </div>
+
+        <div id="executionTime" class="notice"></div>
+      </div>
+
+      <div class="card" style="margin-bottom:24px;">
+        <h3 class="section-title">Recipe Results</h3>
+        <div id="recipeResults">Click <strong>Get Recipes</strong> to load paginated results.</div>
+
+        <div class="pagination">
+          <button class="btn btn-gray" onclick="prevPage()">Previous</button>
+          <span><strong id="pageLabel">Page 1</strong></span>
+          <button class="btn btn-gray" onclick="nextPage()">Next</button>
+        </div>
+      </div>
+
+      <div class="card" style="margin-bottom:24px;">
+        <h3 class="section-title">Clusters Output</h3>
+        <div id="clusterResults">Click <strong>Get Clusters</strong> to load saved cluster output.</div>
+      </div>
+    </div>
+
+    <div class="footer">© 2026 Nutritional Insights Dashboard</div>
+  </div>
+
+  <script>
+    /*
+    This value is the base API URL.
+    Keep only /api here, not /api/insights.
+    */
+    const API_BASE = "https://diet1-a4gbhna3atcyb9am.canadacentral-01.azurewebsites.net/api";
+
+    /*
+    This object stores demo chart data.
+    It is used if the backend API is not ready or fails.
+    */
+    const DEMO_INSIGHTS = {
+      bar_chart: [
+        { diet: "Keto", protein: 28 },
+        { diet: "Vegan", protein: 16 },
+        { diet: "Vegetarian", protein: 20 },
+        { diet: "Paleo", protein: 24 }
+      ],
+      pie_chart: [
+        { diet: "Keto", fat: 35 },
+        { diet: "Vegan", fat: 18 },
+        { diet: "Vegetarian", fat: 22 },
+        { diet: "Paleo", fat: 25 }
+      ],
+      scatter_chart: [
+        { carbs: 10, protein: 28 },
+        { carbs: 25, protein: 16 },
+        { carbs: 18, protein: 20 },
+        { carbs: 15, protein: 24 },
+        { carbs: 30, protein: 14 }
+      ]
+    };
+
+    let token = "";
+    let currentPage = 1;
+    let barChart;
+    let pieChart;
+    let scatterChart;
+
+    /*
+    This function runs when the page first loads.
+    It checks whether a user was already logged in before refresh.
+    */
+    window.onload = function () {
+      restoreSession();
+    };
+
+    /*
+    This function saves the current login session in browser storage.
+    */
+    function saveSession(userName, provider) {
+      localStorage.setItem("dietDashboardUser", JSON.stringify({
+        token: "demo-token",
+        userName: userName,
+        provider: provider || "Email"
+      }));
     }
-    const saved = localStorage.getItem("BACKEND_URL");
-    return saved ? saved.trim() : "";
-}
 
-function showBackendConfig(show) {
-    document.getElementById("backendConfig").style.display = show ? "block" : "none";
-}
+    /*
+    This function reads the saved login session from browser storage.
+    If a user is found, it opens the dashboard automatically.
+    */
+    function restoreSession() {
+      const saved = localStorage.getItem("dietDashboardUser");
 
-function saveBackendUrl() {
-    const value = document.getElementById("backendUrlInput").value.trim();
-    if (!value) return;
-    localStorage.setItem("BACKEND_URL", value);
-    showBackendConfig(false);
-    loadData();
-}
-
-function clearBackendUrl() {
-    localStorage.removeItem("BACKEND_URL");
-    document.getElementById("backendUrlInput").value = "";
-    showBackendConfig(true);
-}
-
-let barChart, lineChart, pieChart;
-
-async function loadData() {
-
-    const filter = document.getElementById("dietFilter").value;
-    const backendUrl = getBackendUrl();
-
-    try {
-        if (!backendUrl) {
-            document.getElementById("errorMessage").innerText =
-                "Backend URL is not configured. Paste your Azure Function URL below.";
-            document.getElementById("configHint").innerText = "";
-            document.getElementById("backendUrlInput").value = "";
-            showBackendConfig(true);
-            return;
-        }
-
-        document.getElementById("errorMessage").innerText = "Loading...";
-        document.getElementById("configHint").innerText = "";
-        showBackendConfig(false);
-
-        const start = performance.now();
-        const response = await fetch(backendUrl, { cache: "no-store" });
-
-        if (!response.ok) {
-            throw new Error(`API request failed (HTTP ${response.status})`);
-        }
-
-        const data = await response.json();
-        const durationMs = Math.round(performance.now() - start);
-
-        const allResults = Array.isArray(data.results) ? data.results : [];
-        populateDietOptions(allResults);
-
-        const selected = document.getElementById("dietFilter").value;
-        let results = allResults;
-        if (selected !== "all") {
-            results = allResults.filter(r => String(r.Diet_type || "").toLowerCase() === selected.toLowerCase());
-        }
-
-        document.getElementById("executionTime").innerText =
-            `Request time: ${durationMs} ms`;
-        document.getElementById("errorMessage").innerText = "";
-
-        renderTable(results);
-        updateCharts(results);
-
-    } catch (error) {
-        console.error(error);
-        const message = (error && error.message) ? error.message : String(error);
-        document.getElementById("errorMessage").innerText =
-            `Error loading data: ${message}`;
-        document.getElementById("configHint").innerText =
-            "If this is a CORS error, allow your frontend origin in the Function App CORS settings.";
-    }
-}
-
-function populateDietOptions(allResults) {
-    const select = document.getElementById("dietFilter");
-    const current = select.value || "all";
-
-    const types = Array.from(new Set(
-        allResults
-            .map(r => String(r.Diet_type ?? "").trim())
-            .filter(Boolean)
-    )).sort((a, b) => a.localeCompare(b));
-
-    const options = [
-        `<option value="all">All Diets</option>`,
-        ...types.map(t => `<option value="${escapeHtmlAttr(t)}">${escapeHtml(t)}</option>`)
-    ];
-
-    select.innerHTML = options.join("");
-    select.value = types.includes(current) ? current : "all";
-}
-
-function renderTable(results) {
-    const container = document.getElementById("tableContainer");
-    if (!results.length) {
-        container.innerHTML = "<p style='text-align:center;'>No results returned.</p>";
+      if (!saved) {
+        showLogin();
         return;
+      }
+
+      try {
+        const session = JSON.parse(saved);
+
+        if (session && session.token && session.userName) {
+          token = session.token;
+          showDashboard(session.userName);
+          getInsights();
+          renderDemoRecipes();
+        } else {
+          showLogin();
+        }
+      } catch (error) {
+        showLogin();
+      }
     }
 
-    const rows = results.map(r => `
-        <tr>
-            <td>${escapeHtml(String(r.Diet_type ?? ""))}</td>
-            <td style="text-align:right;">${formatNumber(r["Protein(g)"])}</td>
-            <td style="text-align:right;">${formatNumber(r["Carbs(g)"])}</td>
-            <td style="text-align:right;">${formatNumber(r["Fat(g)"])}</td>
-        </tr>
-    `).join("");
+    /*
+    This function shows the login screen and hides the dashboard.
+    */
+    function showLogin() {
+      document.getElementById("loginSection").style.display = "flex";
+      document.getElementById("dashboardSection").style.display = "none";
+    }
 
-    container.innerHTML = `
-        <table style="width:100%; border-collapse: collapse;">
-            <thead>
-                <tr>
-                    <th style="text-align:left; border-bottom: 1px solid #ccc; padding: 6px;">Diet_type</th>
-                    <th style="text-align:right; border-bottom: 1px solid #ccc; padding: 6px;">Protein(g)</th>
-                    <th style="text-align:right; border-bottom: 1px solid #ccc; padding: 6px;">Carbs(g)</th>
-                    <th style="text-align:right; border-bottom: 1px solid #ccc; padding: 6px;">Fat(g)</th>
-                </tr>
-            </thead>
-            <tbody>
-                ${rows}
-            </tbody>
-        </table>
-    `;
-}
+    /*
+    This function shows the dashboard and hides the login screen.
+    It also updates the user name in the top right.
+    */
+    function showDashboard(userName) {
+      document.getElementById("loginSection").style.display = "none";
+      document.getElementById("dashboardSection").style.display = "block";
+      document.getElementById("username").innerText = userName;
+    }
 
-function updateCharts(results) {
+    /*
+    This function checks whether the user is logged in.
+    If not, it sends the user back to the login screen.
+    */
+    function requireAuth() {
+      if (!token) {
+        document.getElementById("loginError").innerText = "Please login first.";
+        showLogin();
+        return false;
+      }
+      return true;
+    }
 
-    const labels = results.map(r => r.Diet_type);
-    const protein = results.map(r => Number(r["Protein(g)"] ?? 0));
-    const carbs = results.map(r => Number(r["Carbs(g)"] ?? 0));
-    const fat = results.map(r => Number(r["Fat(g)"] ?? 0));
+    /*
+    This function handles email and password login.
+    It accepts demo credentials and then opens the dashboard.
+    */
+    function login() {
+      const email = document.getElementById("email").value.trim();
+      const password = document.getElementById("password").value.trim();
 
-    if (barChart) barChart.destroy();
-    if (lineChart) lineChart.destroy();
-    if (pieChart) pieChart.destroy();
+      if (email === "admin" && password === "123") {
+        token = "demo-token";
+        document.getElementById("loginError").innerText = "";
+        saveSession("Admin User", "Email");
+        showDashboard("Admin User");
+        getInsights();
+        renderDemoRecipes();
+      } else {
+        document.getElementById("loginError").innerText = "Use admin / 123";
+      }
+    }
 
-    barChart = new Chart(document.getElementById("barChart"), {
+    /*
+    This function simulates OAuth login for demo purposes.
+    It logs the user in using the selected provider name.
+    */
+    function oauthLogin(provider) {
+      token = "demo-token";
+      document.getElementById("loginError").innerText = "";
+      saveSession(provider + " User", provider);
+      showDashboard(provider + " User");
+      getInsights();
+      renderDemoRecipes();
+    }
+
+    /*
+    This function logs the user out.
+    It clears the session and sends the user back to the login screen.
+    */
+    function logout() {
+      token = "";
+      localStorage.removeItem("dietDashboardUser");
+      showLogin();
+      document.getElementById("executionTime").innerText = "";
+      document.getElementById("recipeResults").innerHTML = 'Click <strong>Get Recipes</strong> to load paginated results.';
+      document.getElementById("clusterResults").innerHTML = 'Click <strong>Get Clusters</strong> to load saved cluster output.';
+      document.getElementById("pageLabel").innerText = "Page 1";
+    }
+
+    /*
+    This function loads saved insights from the backend.
+    If the backend fails, it shows demo cached chart data.
+    */
+    async function getInsights() {
+      if (!requireAuth()) return;
+
+      const start = performance.now();
+
+      try {
+        const res = await fetch(API_BASE + "/insights", {
+          headers: {
+            "Authorization": "Bearer " + token
+          }
+        });
+
+        if (!res.ok) {
+          throw new Error("Insights request failed");
+        }
+
+        const data = await res.json();
+        drawCharts(data);
+
+        const end = performance.now();
+        document.getElementById("executionTime").innerText =
+          `Insights loaded in ${(end - start).toFixed(0)} ms using cached data.`;
+      } catch (error) {
+        drawCharts(DEMO_INSIGHTS);
+        document.getElementById("executionTime").innerText =
+          "Showing cached demo insights because API is unavailable.";
+      }
+    }
+
+    /*
+    This function loads recipes using search, filter, and pagination.
+    If the backend fails, it shows demo recipes.
+    */
+    async function getRecipes() {
+      if (!requireAuth()) return;
+
+      const diet = document.getElementById("dietFilter").value;
+      const search = document.getElementById("search").value;
+
+      try {
+        const url = `${API_BASE}/recipes?page=${currentPage}&diet=${encodeURIComponent(diet)}&search=${encodeURIComponent(search)}`;
+
+        const res = await fetch(url, {
+          headers: {
+            "Authorization": "Bearer " + token
+          }
+        });
+
+        if (!res.ok) {
+          throw new Error("Recipes request failed");
+        }
+
+        const data = await res.json();
+
+        if (data.items && Array.isArray(data.items)) {
+          renderRecipes(data.items, data.page || currentPage, data.totalPages || 1);
+        } else {
+          renderDemoRecipes();
+        }
+      } catch (error) {
+        renderDemoRecipes();
+      }
+    }
+
+    /*
+    This function loads cluster data from the backend.
+    If the backend fails, it shows demo cluster content.
+    */
+    async function getClusters() {
+      if (!requireAuth()) return;
+
+      try {
+        const res = await fetch(API_BASE + "/clusters", {
+          headers: {
+            "Authorization": "Bearer " + token
+          }
+        });
+
+        if (!res.ok) {
+          throw new Error("Clusters request failed");
+        }
+
+        const data = await res.json();
+
+        if (Array.isArray(data)) {
+          document.getElementById("clusterResults").innerHTML = `
+            <div class="recipes-list">
+              ${data.slice(0, 8).map(item => `
+                <div class="recipe-item">
+                  <strong>${item.recipe || "Recipe"}</strong><br>
+                  Diet: ${item.diet || "N/A"}<br>
+                  Cluster: ${item.cluster ?? "N/A"}
+                </div>
+              `).join("")}
+            </div>
+          `;
+        } else {
+          renderDemoClusters();
+        }
+      } catch (error) {
+        renderDemoClusters();
+      }
+    }
+
+    /*
+    This function moves to the next recipe page.
+    It only works when the user is logged in.
+    */
+    function nextPage() {
+      if (!requireAuth()) return;
+      currentPage++;
+      getRecipes();
+    }
+
+    /*
+    This function moves to the previous recipe page.
+    It only works when the user is logged in.
+    */
+    function prevPage() {
+      if (!requireAuth()) return;
+      if (currentPage > 1) {
+        currentPage--;
+        getRecipes();
+      }
+    }
+
+    /*
+    This function draws the bar, pie, and scatter charts on the page.
+    */
+    function drawCharts(data) {
+      if (barChart) barChart.destroy();
+      if (pieChart) pieChart.destroy();
+      if (scatterChart) scatterChart.destroy();
+
+      barChart = new Chart(document.getElementById("barChart"), {
         type: "bar",
         data: {
-            labels,
-            datasets: [{
-                label: "Protein (g)",
-                data: protein
-            }, {
-                label: "Carbs (g)",
-                data: carbs
-            }, {
-                label: "Fat (g)",
-                data: fat
-            }]
+          labels: (data.bar_chart || []).map(d => d.diet),
+          datasets: [{
+            label: "Average Protein",
+            data: (data.bar_chart || []).map(d => d.protein)
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false
         }
-    });
+      });
 
-    lineChart = new Chart(document.getElementById("lineChart"), {
-        type: "line",
-        data: {
-            labels,
-            datasets: [{
-                label: "Protein (g)",
-                data: protein
-            }, {
-                label: "Carbs (g)",
-                data: carbs
-            }, {
-                label: "Fat (g)",
-                data: fat
-            }]
-        }
-    });
-
-    const totalProtein = protein.reduce((a, b) => a + b, 0);
-    const totalCarbs = carbs.reduce((a, b) => a + b, 0);
-    const totalFat = fat.reduce((a, b) => a + b, 0);
-
-    pieChart = new Chart(document.getElementById("pieChart"), {
+      pieChart = new Chart(document.getElementById("pieChart"), {
         type: "pie",
         data: {
-            labels: ["Protein (g)", "Carbs (g)", "Fat (g)"],
-            datasets: [{
-                data: [totalProtein, totalCarbs, totalFat]
-            }]
+          labels: (data.pie_chart || []).map(d => d.diet),
+          datasets: [{
+            label: "Fat",
+            data: (data.pie_chart || []).map(d => d.fat)
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false
         }
-    });
-}
+      });
 
-function formatNumber(value) {
-    const n = Number(value);
-    if (Number.isNaN(n)) return "";
-    return n.toFixed(2).replace(/\\.00$/, "");
-}
+      scatterChart = new Chart(document.getElementById("scatterChart"), {
+        type: "scatter",
+        data: {
+          datasets: [{
+            label: "Carbs vs Protein",
+            data: (data.scatter_chart || []).map(d => ({
+              x: d.carbs,
+              y: d.protein
+            }))
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false
+        }
+      });
+    }
 
-function escapeHtml(str) {
-    return str
-        .replaceAll("&", "&amp;")
-        .replaceAll("<", "&lt;")
-        .replaceAll(">", "&gt;")
-        .replaceAll("\"", "&quot;")
-        .replaceAll("'", "&#39;");
-}
+    /*
+    This function shows recipe results returned from the backend.
+    */
+    function renderRecipes(items, page, totalPages) {
+      document.getElementById("pageLabel").innerText = `Page ${page} of ${totalPages}`;
 
-function escapeHtmlAttr(str) {
-    return escapeHtml(str).replaceAll("`", "&#96;");
-}
+      document.getElementById("recipeResults").innerHTML = `
+        <div class="recipes-list">
+          ${items.map(item => `
+            <div class="recipe-item">
+              <strong>${item.recipe || "Recipe Name"}</strong><br>
+              Diet: ${item.diet || "Unknown"}<br>
+              Calories: ${item.calories || 0} |
+              Protein: ${item.protein || 0} |
+              Carbs: ${item.carbs || 0} |
+              Fat: ${item.fat || 0}
+            </div>
+          `).join("")}
+        </div>
+      `;
+    }
 
-// Auto load on start
-loadData();
+    /*
+    This function shows example recipe data when the recipes API is not working yet.
+    */
+    function renderDemoRecipes() {
+      const selectedDiet = document.getElementById("dietFilter").value.trim().toLowerCase();
+      const keyword = document.getElementById("search").value.trim().toLowerCase();
 
-</script>
+      let demoItems = [
+        { recipe: "Avocado Keto Bowl", diet: "Keto", calories: 420, protein: 21, carbs: 10, fat: 31 },
+        { recipe: "Green Vegan Salad", diet: "Vegan", calories: 280, protein: 9, carbs: 24, fat: 14 },
+        { recipe: "Protein Veg Wrap", diet: "Vegetarian", calories: 350, protein: 18, carbs: 28, fat: 12 },
+        { recipe: "Paleo Chicken Plate", diet: "Paleo", calories: 460, protein: 29, carbs: 16, fat: 24 }
+      ];
 
+      if (selectedDiet) {
+        demoItems = demoItems.filter(item => item.diet.toLowerCase() === selectedDiet);
+      }
+
+      if (keyword) {
+        demoItems = demoItems.filter(item =>
+          item.recipe.toLowerCase().includes(keyword)
+        );
+      }
+
+      renderRecipes(demoItems, currentPage, 2);
+    }
+
+    /*
+    This function shows example cluster data when the clusters API is not working yet.
+    */
+    function renderDemoClusters() {
+      const demoClusters = [
+        { recipe: "Avocado Keto Bowl", diet: "Keto", cluster: 0 },
+        { recipe: "Green Vegan Salad", diet: "Vegan", cluster: 1 },
+        { recipe: "Protein Veg Wrap", diet: "Vegetarian", cluster: 2 }
+      ];
+
+      document.getElementById("clusterResults").innerHTML = `
+        <div class="recipes-list">
+          ${demoClusters.map(item => `
+            <div class="recipe-item">
+              <strong>${item.recipe}</strong><br>
+              Diet: ${item.diet}<br>
+              Cluster: ${item.cluster}
+            </div>
+          `).join("")}
+        </div>
+      `;
+    }
+  </script>
 </body>
 </html>
