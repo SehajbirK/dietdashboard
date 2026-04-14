@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Diet Dashboard - Phase 3</title>
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <!--
     Config is provided either:
     - by Flask at /config.js (local dev host), OR
@@ -737,6 +737,11 @@
     This function draws the bar, pie, and scatter charts on the page.
     */
     function drawCharts(data) {
+      if (typeof Chart === "undefined") {
+        document.getElementById("executionTime").innerText =
+          "Chart.js failed to load (network blocked). Login/API can still work, but charts cannot render.";
+        return;
+      }
       if (barChart) barChart.destroy();
       if (pieChart) pieChart.destroy();
       if (scatterChart) scatterChart.destroy();

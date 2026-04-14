@@ -68,16 +68,18 @@ Your Functions `local.settings.json` should contain:
 
 From `backend/`:
 
-1. Create `backend/local.settings.json` from the example (auto-generates `JWT_SECRET`):
-   - `python scripts/create_local_settings.py`
-2. Install Python deps:
-   - `pip install -r requirements.txt`
-3. Initialize containers + users table:
-   - `python scripts/init_storage.py`
-4. Start Functions host:
-   - `func start`
-5. Upload the CSV to trigger cleaning + precompute:
-   - `python scripts/upload_all_diets.py`
+1. Quick start (recommended):
+   - `bash scripts/run_local.sh`
+
+This script:
+- creates `local.settings.json`
+- creates a local `.venv` and installs dependencies (so `func start` can import them)
+- starts the Functions host
+
+If you prefer manual steps:
+- `python3 -m venv .venv && source .venv/bin/activate && pip install -r requirements.txt`
+- `python3 scripts/create_local_settings.py`
+- `func start`
 
 Wait for the Functions logs to show that the Blob Trigger ran and wrote the cache blobs.
 
@@ -90,6 +92,9 @@ From `frontend/`:
    - `pip install -r requirements.txt`
 3. Run:
    - `python app.py`
+
+Or quick start:
+- `bash scripts/run_local.sh`
 4. Open:
    - `http://localhost:5000`
 
