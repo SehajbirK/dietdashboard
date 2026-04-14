@@ -417,11 +417,9 @@
 	    function normalizeBackendUrl(raw) {
 	      const s = String(raw || "").trim();
 	      if (!s) return "";
-	      if (!/^https?:\\/\\//i.test(s)) {
-	        if (s.startsWith("localhost") || s.startsWith("127.0.0.1")) return "http://" + s;
-	        return "https://" + s;
-	      }
-	      return s;
+	      if (s.startsWith("http://") || s.startsWith("https://")) return s;
+	      if (s.startsWith("localhost") || s.startsWith("127.0.0.1")) return "http://" + s;
+	      return "https://" + s;
 	    }
 
 	    function setBackendUrl(baseUrl) {
@@ -477,7 +475,7 @@
 
 	    function validateEmail(email) {
 	      const e = String(email || "").trim();
-	      return /^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(e);
+	      return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e);
 	    }
 
 	    function validatePassword(password) {
