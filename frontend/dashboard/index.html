@@ -133,6 +133,29 @@
       text-align: center;
     }
 
+    .mode-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-bottom: 12px;
+    }
+
+    .mode-btn {
+      border: 1px solid #d1d5db;
+      background: #fff;
+      color: #111827;
+      border-radius: 10px;
+      padding: 10px 12px;
+      font-weight: 800;
+      cursor: pointer;
+    }
+
+    .mode-btn.active {
+      border-color: #2563eb;
+      color: #1d4ed8;
+      box-shadow: 0 6px 18px rgba(37, 99, 235, 0.18);
+    }
+
     .error {
       color: #dc2626;
       margin-top: 8px;
@@ -257,17 +280,21 @@
 <body>
   <div id="loginSection" class="login-wrapper">
     <div class="login-card">
-      <h2>Diet Dashboard Login</h2>
-      <p>Register or login to view the secured nutrition analytics dashboard.</p>
+	      <h2>Diet Dashboard Login</h2>
+	      <p>Register or login to view the secured nutrition analytics dashboard.</p>
 
-      <input id="name" class="input" placeholder="Name (for registration)" />
-      <input id="email" class="input" placeholder="Email" />
-      <input id="password" class="input" type="password" placeholder="Password" />
+	      <div class="mode-row">
+	        <button id="modeRegisterBtn" class="mode-btn active" onclick="setMode('register')">Register</button>
+	        <button id="modeLoginBtn" class="mode-btn" onclick="setMode('login')">Login</button>
+	      </div>
 
-      <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 10px;">
-        <button class="btn btn-success btn-full" onclick="register()">Register</button>
-        <button class="btn btn-primary btn-full" onclick="login()">Login</button>
-      </div>
+	      <input id="name" class="input" placeholder="Name" />
+	      <input id="email" class="input" placeholder="Email" />
+	      <input id="password" class="input" type="password" placeholder="Password" />
+
+	      <div id="passwordHint" class="small-note">Password must be at least 8 characters.</div>
+
+	      <button id="primaryActionBtn" class="btn btn-success btn-full" onclick="primaryAction()">Create account</button>
 
       <div class="oauth-row">
         <button class="btn btn-primary" onclick="oauthLoginGitHub()">Continue with GitHub</button>
@@ -379,19 +406,32 @@
     This value is the base API URL.
     Keep only /api here, not /api/insights.
     */
-    const isLocalHost = (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1");
-    const hasExplicitBackendUrl = !!(window.BACKEND_URL && String(window.BACKEND_URL).trim());
-    let BACKEND_URL = ((window.BACKEND_URL || "") + "").replace(/\/$/, "");
-    let API_BASE = BACKEND_URL
-      ? (BACKEND_URL.endsWith("/api") ? BACKEND_URL : (BACKEND_URL + "/api"))
-      : "";
+	    const isLocalHost = (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1");
+	    const hasExplicitBackendUrl = !!(window.BACKEND_URL && String(window.BACKEND_URL).trim());
+	    let BACKEND_URL = ((window.BACKEND_URL || "") + "");
+	    let API_BASE = BACKEND_URL
+	      ? (BACKEND_URL.endsWith("/api") ? BACKEND_URL : (BACKEND_URL + "/api"))
+	      : "";
+	    let authMode = "register";
 
-    function setBackendUrl(baseUrl) {
-      BACKEND_URL = (String(baseUrl || "")).replace(/\/$/, "");
-      API_BASE = BACKEND_URL
-        ? (BACKEND_URL.endsWith("/api") ? BACKEND_URL : (BACKEND_URL + "/api"))
-        : "";
-    }
+	    function normalizeBackendUrl(raw) {
+	      const s = String(raw || "").trim();
+	      if (!s) return "";
+	      if (!/^https?:\\/\\//i.test(s)) {
+	        if (s.startsWith("localhost") || s.startsWith("127.0.0.1")) return "http://" + s;
+	        return "https://" + s;
+	      }
+	      return s;
+	    }
+
+	    function setBackendUrl(baseUrl) {
+	      BACKEND_URL = normalizeBackendUrl(baseUrl).replace(/\/$/, "");
+	      API_BASE = BACKEND_URL
+	        ? (BACKEND_URL.endsWith("/api") ? BACKEND_URL : (BACKEND_URL + "/api"))
+	        : "";
+	    }
+
+	    setBackendUrl(BACKEND_URL);
 
     let token = "";
     let currentPage = 1;
@@ -404,11 +444,86 @@
     This function runs when the page first loads.
     It checks whether a user was already logged in before refresh.
     */
-    window.onload = function () {
-      hydrateTokenFromOAuthRedirect();
-      restoreSession();
-      updateBackendStatus();
-    };
+	    window.onload = function () {
+	      hydrateTokenFromOAuthRedirect();
+	      restoreSession();
+	      updateBackendStatus();
+	      bindLiveValidation();
+	      setMode("register");
+	    };
+
+	    function setMode(mode) {
+	      authMode = (mode === "login") ? "login" : "register";
+	      const isRegister = authMode === "register";
+
+	      document.getElementById("modeRegisterBtn").classList.toggle("active", isRegister);
+	      document.getElementById("modeLoginBtn").classList.toggle("active", !isRegister);
+
+	      document.getElementById("name").style.display = isRegister ? "block" : "none";
+	      document.getElementById("passwordHint").style.display = isRegister ? "block" : "none";
+
+	      const btn = document.getElementById("primaryActionBtn");
+	      btn.className = "btn btn-full " + (isRegister ? "btn-success" : "btn-primary");
+	      btn.innerText = isRegister ? "Create account" : "Login";
+
+	      document.getElementById("loginError").innerText = "";
+	      updatePrimaryButtonEnabled();
+	    }
+
+	    function primaryAction() {
+	      if (authMode === "login") return login();
+	      return register();
+	    }
+
+	    function validateEmail(email) {
+	      const e = String(email || "").trim();
+	      return /^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(e);
+	    }
+
+	    function validatePassword(password) {
+	      return String(password || "").length >= 8;
+	    }
+
+	    function bindLiveValidation() {
+	      ["name", "email", "password"].forEach(id => {
+	        const el = document.getElementById(id);
+	        if (el) el.addEventListener("input", updatePrimaryButtonEnabled);
+	      });
+	    }
+
+	    function updatePrimaryButtonEnabled() {
+	      const btn = document.getElementById("primaryActionBtn");
+	      if (!btn) return;
+
+	      const email = document.getElementById("email").value.trim();
+	      const password = document.getElementById("password").value;
+	      const name = document.getElementById("name").value.trim();
+
+	      if (!API_BASE) {
+	        btn.disabled = true;
+	        btn.style.opacity = "0.6";
+	        return;
+	      }
+
+	      const okEmail = validateEmail(email);
+	      const okPass = (authMode === "login") ? (password.length > 0) : validatePassword(password);
+	      const okName = (authMode === "login") ? true : (name.length > 0);
+
+	      btn.disabled = !(okEmail && okPass && okName);
+	      btn.style.opacity = btn.disabled ? "0.6" : "1";
+	    }
+
+	    function humanError(err) {
+	      const msg = String((err && err.message) || err || "");
+	      if (!msg) return "Request failed.";
+	      if (msg.includes("Failed to fetch") || msg.includes("not reachable")) {
+	        return "Backend not reachable. Check BACKEND_URL and that the backend is running.";
+	      }
+	      if (msg.includes("expected pattern")) {
+	        return "Backend URL is invalid. Make sure it starts with https:// (or http:// for localhost).";
+	      }
+	      return msg;
+	    }
 
     async function tryDiscoverLocalBackend() {
       if (hasExplicitBackendUrl) return;
@@ -430,25 +545,27 @@
       }
     }
 
-    async function updateBackendStatus() {
-      const el = document.getElementById("backendStatus");
-      if (!el) return;
+	    async function updateBackendStatus() {
+	      const el = document.getElementById("backendStatus");
+	      if (!el) return;
 
-      await tryDiscoverLocalBackend();
+	      await tryDiscoverLocalBackend();
 
-      if (!API_BASE) {
-        el.innerText = "Backend: not configured (set BACKEND_URL / config.js)";
-        return;
-      }
+	      if (!API_BASE) {
+	        el.innerText = "Backend: not configured (set BACKEND_URL / config.js)";
+	        updatePrimaryButtonEnabled();
+	        return;
+	      }
 
-      el.innerText = "Backend: checking…";
-      try {
-        const res = await fetch(API_BASE + "/health", { method: "GET" });
-        el.innerText = res.ok ? ("Backend: " + API_BASE) : ("Backend: " + API_BASE + " (unhealthy)");
-      } catch (e) {
-        el.innerText = "Backend: " + API_BASE + " (not reachable)";
-      }
-    }
+	      el.innerText = "Backend: checking…";
+	      try {
+	        const res = await fetch(API_BASE + "/health", { method: "GET" });
+	        el.innerText = res.ok ? ("Backend: " + API_BASE) : ("Backend: " + API_BASE + " (unhealthy)");
+	      } catch (e) {
+	        el.innerText = "Backend: " + API_BASE + " (not reachable)";
+	      }
+	      updatePrimaryButtonEnabled();
+	    }
 
     function saveSession(authToken) {
       sessionStorage.setItem("dietDashboardToken", authToken);
@@ -526,54 +643,61 @@
       return fetch(url, Object.assign({}, options || {}, { headers }));
     }
 
-    async function register() {
-      const name = document.getElementById("name").value.trim();
-      const email = document.getElementById("email").value.trim();
-      const password = document.getElementById("password").value.trim();
+	    async function register() {
+	      const name = document.getElementById("name").value.trim();
+	      const email = document.getElementById("email").value.trim();
+	      const password = document.getElementById("password").value.trim();
 
-      document.getElementById("loginError").innerText = "";
+	      document.getElementById("loginError").innerText = "";
 
-      try {
-        const res = await apiFetch("/register", {
-          method: "POST",
-          body: JSON.stringify({ name, email, password })
-        });
+	      try {
+	        if (!validateEmail(email)) throw new Error("Enter a valid email address.");
+	        if (!validatePassword(password)) throw new Error("Password must be at least 8 characters.");
+	        if (!name) throw new Error("Name is required.");
 
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.error || "Registration failed");
+	        const res = await apiFetch("/auth/register", {
+	          method: "POST",
+	          body: JSON.stringify({ name, email, password })
+	        });
+
+	        const data = await res.json();
+	        if (!res.ok) throw new Error(data.error || "Registration failed");
 
         token = data.token;
         saveSession(token);
-        showDashboard(data.user && data.user.name ? data.user.name : name);
-        await refreshMeAndLoad();
-      } catch (err) {
-        document.getElementById("loginError").innerText = String(err.message || err);
-      }
-    }
+	        showDashboard(data.user && data.user.name ? data.user.name : name);
+	        await refreshMeAndLoad();
+	      } catch (err) {
+	        document.getElementById("loginError").innerText = humanError(err);
+	      }
+	    }
 
-    async function login() {
-      const email = document.getElementById("email").value.trim();
-      const password = document.getElementById("password").value.trim();
+	    async function login() {
+	      const email = document.getElementById("email").value.trim();
+	      const password = document.getElementById("password").value.trim();
 
-      document.getElementById("loginError").innerText = "";
+	      document.getElementById("loginError").innerText = "";
 
-      try {
-        const res = await apiFetch("/login", {
-          method: "POST",
-          body: JSON.stringify({ email, password })
-        });
+	      try {
+	        if (!validateEmail(email)) throw new Error("Enter a valid email address.");
+	        if (!password) throw new Error("Password is required.");
+
+	        const res = await apiFetch("/auth/login", {
+	          method: "POST",
+	          body: JSON.stringify({ email, password })
+	        });
 
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || "Login failed");
 
         token = data.token;
         saveSession(token);
-        showDashboard(data.user && data.user.name ? data.user.name : "User");
-        await refreshMeAndLoad();
-      } catch (err) {
-        document.getElementById("loginError").innerText = String(err.message || err);
-      }
-    }
+	        showDashboard(data.user && data.user.name ? data.user.name : "User");
+	        await refreshMeAndLoad();
+	      } catch (err) {
+	        document.getElementById("loginError").innerText = humanError(err);
+	      }
+	    }
 
     function oauthLoginGitHub() {
       if (!API_BASE) {
@@ -592,14 +716,14 @@
       doLogout();
     }
 
-    async function doLogout() {
-      try {
-        if (token) {
-          await apiFetch("/logout", { method: "POST" });
-        }
-      } catch (e) {
-        // ignore
-      }
+	    async function doLogout() {
+	      try {
+	        if (token) {
+	          await apiFetch("/auth/logout", { method: "POST" });
+	        }
+	      } catch (e) {
+	        // ignore
+	      }
       token = "";
       clearSession();
       showLogin();
