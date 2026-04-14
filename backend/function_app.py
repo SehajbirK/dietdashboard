@@ -83,26 +83,31 @@ def _require_auth(req: func.HttpRequest):
     token = extract_bearer_token(req.headers.get("Authorization"))
     if not token:
         raise PermissionError("Missing Bearer token.")
-    if settings.local_dev_mode:
-        conn = sqlite_connect(settings.sqlite_path)
-        try:
-            return validate_request_token_sqlite(
+    try:
+        if settings.local_dev_mode:
+            conn = sqlite_connect(settings.sqlite_path)
+            try:
+                return validate_request_token_sqlite(
+                    token=token,
+                    conn=conn,
+                    jwt_secret=_require_jwt_secret(),
+                    jwt_issuer=settings.jwt_issuer,
+                    jwt_audience=settings.jwt_audience,
+                )
+            finally:
+                conn.close()
+        else:
+            return validate_request_token(
                 token=token,
-                conn=conn,
+                table=_table_client(),
                 jwt_secret=_require_jwt_secret(),
                 jwt_issuer=settings.jwt_issuer,
                 jwt_audience=settings.jwt_audience,
             )
-        finally:
-            conn.close()
-    else:
-        return validate_request_token(
-            token=token,
-            table=_table_client(),
-            jwt_secret=_require_jwt_secret(),
-            jwt_issuer=settings.jwt_issuer,
-            jwt_audience=settings.jwt_audience,
-        )
+    except PermissionError:
+        raise
+    except Exception as e:
+        raise PermissionError(str(e))
 
 
 def _load_cached_json(*, container: str, blob: str, cache: dict[str, Any]) -> dict[str, Any]:
@@ -317,6 +322,8 @@ def api_me(req: func.HttpRequest) -> func.HttpResponse:
         )
     except PermissionError as e:
         return json_response({"error": str(e)}, status_code=401, headers=cors_headers(_origin(req)))
+    except Exception as e:
+        return json_response({"error": f"Me failed: {e}"}, status_code=500, headers=cors_headers(_origin(req)))
 
 
 @app.route(route="oauth/github/start", methods=["GET", "OPTIONS"])

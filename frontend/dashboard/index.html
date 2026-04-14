@@ -748,8 +748,16 @@
     async function refreshMeAndLoad() {
       try {
         const res = await apiFetch("/me", { method: "GET" });
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.error || "Session invalid");
+        let data = null;
+        try {
+          data = await res.json();
+        } catch (e) {
+          // non-JSON (e.g., platform error page)
+        }
+        if (!res.ok) {
+          const errMsg = (data && data.error) ? data.error : ("Session check failed (" + res.status + ")");
+          throw new Error(errMsg);
+        }
         showDashboard(data.user && data.user.name ? data.user.name : "User");
         currentPage = 1;
         await getInsights();
@@ -758,7 +766,9 @@
         token = "";
         clearSession();
         showLogin();
-        document.getElementById("loginError").innerText = "Session expired. Please login again.";
+        const msg = humanError(e);
+        document.getElementById("loginError").innerText =
+          (msg && msg !== "Request failed.") ? msg : "Session expired. Please login again.";
       }
     }
 

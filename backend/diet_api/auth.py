@@ -117,11 +117,17 @@ def validate_request_token(
     jwt_issuer: str,
     jwt_audience: str,
 ) -> AuthUser:
-    payload = _jwt_decode(token, secret=jwt_secret, issuer=jwt_issuer, audience=jwt_audience)
+    try:
+        payload = _jwt_decode(token, secret=jwt_secret, issuer=jwt_issuer, audience=jwt_audience)
+    except jwt.PyJWTError:
+        raise PermissionError("Invalid or expired token.")
     user_id = str(payload["sub"])
     tv = int(payload.get("tv") or 0)
 
-    entity = table.get_entity(partition_key="USER", row_key=user_id)
+    try:
+        entity = table.get_entity(partition_key="USER", row_key=user_id)
+    except ResourceNotFoundError:
+        raise PermissionError("Unknown user.")
     user = _user_entity_to_auth_user(entity)
     if user.token_version != tv:
         raise PermissionError("Token has been revoked.")
@@ -174,7 +180,10 @@ def validate_request_token_sqlite(
     jwt_issuer: str,
     jwt_audience: str,
 ) -> AuthUser:
-    payload = _jwt_decode(token, secret=jwt_secret, issuer=jwt_issuer, audience=jwt_audience)
+    try:
+        payload = _jwt_decode(token, secret=jwt_secret, issuer=jwt_issuer, audience=jwt_audience)
+    except jwt.PyJWTError:
+        raise PermissionError("Invalid or expired token.")
     user_id = str(payload["sub"])
     tv = int(payload.get("tv") or 0)
     user = _sqlite_get_user(conn, user_id)
@@ -298,7 +307,10 @@ def register_local_user(
 
 def login_local_user(*, table: TableClient, email: str, password: str) -> AuthUser:
     email_norm = _user_row_key_local(email)
-    entity = table.get_entity(partition_key="USER", row_key=email_norm)
+    try:
+        entity = table.get_entity(partition_key="USER", row_key=email_norm)
+    except ResourceNotFoundError:
+        raise PermissionError("Invalid email or password.")
     if (entity.get("provider") or "local") != "local":
         raise PermissionError("Use OAuth to sign in for this account.")
     pw_hash = entity.get("password_hash") or ""
