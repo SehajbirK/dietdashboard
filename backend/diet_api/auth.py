@@ -60,6 +60,10 @@ def _user_entity_to_auth_user(entity: dict[str, Any]) -> AuthUser:
         token_version=int(entity.get("token_version") or 0),
     )
 
+def _odata_quote(value: str) -> str:
+    # OData string literals use single quotes; escape single quote by doubling.
+    return "'" + (value or "").replace("'", "''") + "'"
+
 
 def _jwt_encode(
     *,
@@ -310,6 +314,18 @@ def login_local_user(*, table: TableClient, email: str, password: str) -> AuthUs
     try:
         entity = table.get_entity(partition_key="USER", row_key=email_norm)
     except ResourceNotFoundError:
+        # If the email exists for an OAuth-only account, guide the user.
+        try:
+            q = f"PartitionKey eq 'USER' and email eq {_odata_quote(email_norm)}"
+            hits = list(table.query_entities(query_filter=q, results_per_page=5))
+            for h in hits:
+                provider = str(h.get("provider") or "").lower()
+                if provider and provider != "local":
+                    raise PermissionError("Use OAuth to sign in for this email.")
+        except PermissionError:
+            raise
+        except Exception:
+            pass
         raise PermissionError("Invalid email or password.")
     if (entity.get("provider") or "local") != "local":
         raise PermissionError("Use OAuth to sign in for this account.")
@@ -474,6 +490,27 @@ def upsert_github_user(
         table.upsert_entity(mode="replace", entity=entity)
         return _user_entity_to_auth_user(entity)
     except ResourceNotFoundError:
+        # If a local account already exists with the same email, link GitHub to that account so
+        # email/password login can still work (provider stays as-is; we only attach provider_user_id).
+        if email:
+            email_norm = _user_row_key_local(email)
+            try:
+                by_email = table.get_entity(partition_key="USER", row_key=email_norm)
+                by_email["name"] = name
+                by_email["email"] = email_norm
+                by_email["provider_user_id"] = str(github_id)
+                table.upsert_entity(mode="replace", entity=by_email)
+                tv = int(by_email.get("token_version") or 0)
+                return AuthUser(
+                    user_id=email_norm,
+                    email=email_norm,
+                    name=name,
+                    provider="github",
+                    token_version=tv,
+                )
+            except ResourceNotFoundError:
+                pass
+
         entity = {
             "PartitionKey": "USER",
             "RowKey": user_id,

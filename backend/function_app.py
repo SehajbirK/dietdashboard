@@ -206,7 +206,15 @@ if not settings.local_dev_mode:
 def api_health(req: func.HttpRequest) -> func.HttpResponse:
     if req.method == "OPTIONS":
         return func.HttpResponse(status_code=204, headers=cors_headers(_origin(req)))
-    return json_response({"ok": True}, headers=cors_headers(_origin(req)))
+    return json_response(
+        {
+            "ok": True,
+            "local_dev_mode": bool(settings.local_dev_mode),
+            "users_table_name": settings.users_table_name,
+            "storage_configured": bool(settings.storage_connection_string),
+        },
+        headers=cors_headers(_origin(req)),
+    )
 
 
 @app.route(route="auth/register", methods=["POST", "OPTIONS"])
