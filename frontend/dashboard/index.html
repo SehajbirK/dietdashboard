@@ -605,6 +605,18 @@
       sessionStorage.removeItem("dietDashboardToken");
     }
 
+    function sleep(ms) {
+      return new Promise((resolve) => setTimeout(resolve, ms));
+    }
+
+    async function safeJson(res) {
+      try {
+        return await res.json();
+      } catch (e) {
+        return null;
+      }
+    }
+
     function restoreSession() {
       const savedToken = sessionStorage.getItem("dietDashboardToken");
       if (!savedToken) {
@@ -766,29 +778,43 @@
     }
 
     async function refreshMeAndLoad() {
-      try {
-        const res = await apiFetch("/me", { method: "GET" });
-        let data = null;
+      // Retry a couple times so transient network/CORS/platform glitches don't "randomly log out" the user.
+      const backoffs = [0, 500, 1500];
+      for (let attempt = 0; attempt < backoffs.length; attempt++) {
+        if (backoffs[attempt]) await sleep(backoffs[attempt]);
         try {
-          data = await res.json();
+          const res = await apiFetch("/me", { method: "GET" });
+          const data = await safeJson(res);
+
+          if (res.status === 401) {
+            token = "";
+            clearSession();
+            showLogin();
+            document.getElementById("loginError").innerText =
+              (data && data.error) ? data.error : "Please login again.";
+            return;
+          }
+
+          if (!res.ok) {
+            // Non-auth errors: keep token/session and let the user retry later.
+            const msg = (data && data.error) ? data.error : ("Backend error (" + res.status + ")");
+            throw new Error(msg);
+          }
+
+          showDashboard(data.user && data.user.name ? data.user.name : "User");
+          currentPage = 1;
+          await getInsights();
+          await getRecipes();
+          return;
         } catch (e) {
-          // non-JSON (e.g., platform error page)
+          // Last attempt: show login screen but DO NOT clear token (prevents random logout).
+          if (attempt === backoffs.length - 1) {
+            showLogin();
+            document.getElementById("loginError").innerText =
+              "Could not verify login right now. Please refresh the page and try again.";
+            return;
+          }
         }
-        if (!res.ok) {
-          const errMsg = (data && data.error) ? data.error : ("Session check failed (" + res.status + ")");
-          throw new Error(errMsg);
-        }
-        showDashboard(data.user && data.user.name ? data.user.name : "User");
-        currentPage = 1;
-        await getInsights();
-        await getRecipes();
-      } catch (e) {
-        token = "";
-        clearSession();
-        showLogin();
-        const msg = humanError(e);
-        document.getElementById("loginError").innerText =
-          (msg && msg !== "Request failed.") ? msg : "Session expired. Please login again.";
       }
     }
 
