@@ -447,6 +447,7 @@
 	      restoreSession();
 	      updateBackendStatus();
 	      bindLiveValidation();
+        bindSearchAndFilter();
 	      setMode("register");
 	    };
 
@@ -488,6 +489,25 @@
 	        if (el) el.addEventListener("input", updatePrimaryButtonEnabled);
 	      });
 	    }
+
+      function bindSearchAndFilter() {
+        const searchEl = document.getElementById("search");
+        const dietEl = document.getElementById("dietFilter");
+        if (dietEl) {
+          dietEl.addEventListener("change", () => {
+            currentPage = 1;
+            getRecipes();
+          });
+        }
+        if (searchEl) {
+          searchEl.addEventListener("keydown", (e) => {
+            if (e.key === "Enter") {
+              currentPage = 1;
+              getRecipes();
+            }
+          });
+        }
+      }
 
 	    function updatePrimaryButtonEnabled() {
 	      const btn = document.getElementById("primaryActionBtn");
@@ -779,7 +799,20 @@
 
       try {
         const res = await apiFetch("/insights", { method: "GET" });
-        const data = await res.json();
+        let data = null;
+        try {
+          data = await res.json();
+        } catch (e) {
+          // ignore non-JSON
+        }
+
+        if (res.status === 401) {
+          token = "";
+          clearSession();
+          showLogin();
+          document.getElementById("loginError").innerText = (data && data.error) ? data.error : "Please login again.";
+          return;
+        }
 
         if (!res.ok) {
           throw new Error((data && data.error) || "Insights request failed");
@@ -805,7 +838,20 @@
         const pageSize = 10;
         const url = `/recipes?page=${currentPage}&pageSize=${pageSize}&diet=${encodeURIComponent(diet)}&search=${encodeURIComponent(search)}`;
         const res = await apiFetch(url, { method: "GET" });
-        const data = await res.json();
+        let data = null;
+        try {
+          data = await res.json();
+        } catch (e) {
+          // ignore non-JSON
+        }
+
+        if (res.status === 401) {
+          token = "";
+          clearSession();
+          showLogin();
+          document.getElementById("loginError").innerText = (data && data.error) ? data.error : "Please login again.";
+          return;
+        }
 
         if (!res.ok) {
           throw new Error((data && data.error) || "Recipes request failed");
@@ -827,7 +873,22 @@
 
       try {
         const res = await apiFetch("/clusters", { method: "GET" });
-        const data = await res.json();
+        let data = null;
+        try {
+          data = await res.json();
+        } catch (e) {
+          // ignore non-JSON
+        }
+
+        if (res.status === 401) {
+          token = "";
+          clearSession();
+          showLogin();
+          document.getElementById("loginError").innerText = (data && data.error) ? data.error : "Please login again.";
+          return;
+        }
+
+        if (!data) throw new Error("Clusters request failed");
 
         if (!res.ok) {
           throw new Error((data && data.error) || "Clusters request failed");
