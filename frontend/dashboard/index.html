@@ -514,6 +514,9 @@
 	    function humanError(err) {
 	      const msg = String((err && err.message) || err || "");
 	      if (!msg) return "Request failed.";
+	      if (msg === "Load failed") {
+	        return "Backend request failed (Safari). Check BACKEND_URL and that the backend is reachable.";
+	      }
 	      if (msg.includes("Failed to fetch") || msg.includes("not reachable")) {
 	        return "Backend not reachable. Check BACKEND_URL and that the backend is running.";
 	      }
@@ -558,9 +561,18 @@
 	      el.innerText = "Backend: checking…";
 	      try {
 	        const res = await fetch(API_BASE + "/health", { method: "GET" });
-	        el.innerText = res.ok ? ("Backend: " + API_BASE) : ("Backend: " + API_BASE + " (unhealthy)");
+	        if (res.ok) {
+	          el.innerText = "Backend: " + API_BASE;
+	        } else {
+	          const txt = await res.text();
+	          el.innerText = "Backend: " + API_BASE + " (unhealthy: " + res.status + ")";
+	          if (txt) {
+	            document.getElementById("loginError").innerText = "Backend health error: " + txt.slice(0, 200);
+	          }
+	        }
 	      } catch (e) {
 	        el.innerText = "Backend: " + API_BASE + " (not reachable)";
+	        document.getElementById("loginError").innerText = humanError(e);
 	      }
 	      updatePrimaryButtonEnabled();
 	    }
